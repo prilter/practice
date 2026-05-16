@@ -5,11 +5,10 @@ import random
 import json
 
 # ═══════════════════════════════════════════════════════
-TARGET          = 5000
+TARGET          = 200
 NEWS_PER_PAGE   = 100
-BAR_LEN         = 50
-OUTPUT_DIR      = "json"
-OUTPUT_FILENAME = "data"
+BAR_LEN         = 25
+OUTPUT          = "json/data"
 
 QUERIES = [
     # Basis
@@ -26,8 +25,8 @@ QUERIES = [
     "tecnología", "ciencia", "salud", "médico", "innovación", "descubrimiento", "estudio", "clima", "medio ambiente", # Science and health
     "cultura", "cine", "estreno", "concierto", "famosos", "espectáculos", # Culture
     "ayuntamiento", "alcalde", "barrio", "comunidad", "vecinos", "protesta", "manifestación", # Local
-    "pronóstico", "clima", "tormenta", "medio ambiente", "sostenibilidad", "cambio climático" # Weather
-    "universidad", "estudiantes", "oposiciones", "becas", "teletrabajo", "sindicato" # Education
+    "pronóstico", "clima", "tormenta", "medio ambiente", "sostenibilidad", "cambio climático", # Weather
+    "universidad", "estudiantes", "oposiciones", "becas", "teletrabajo", "sindicato", # Education
     "detenido", "robo", "incendio", "desaparecido", "operativo", "narcotráfico", "emergencia" # Criminal
 ]
 
@@ -108,16 +107,14 @@ def getpage(query, page, region, max_retries=3):
                 return res
 
             elif r.status_code == 429: # TOO AGRESSIVE PARSING
-                wait = 30 * (attempt + 1)
-                print(f" [429 – wait {wait}s]", end="", flush=True)
-                time.sleep(wait)
+                print(f" [429 – waiting]", end="", flush=True); rdelay(5,7)
             else: # ERROR -> RETRY
-                time.sleep(5 * (attempt + 1))
+                print(f" Error", end="", flush=True);           rdelay(5,7)
 
         except requests.exceptions.ConnectionError: # CONNECTION ERROR
-            time.sleep(10 * (attempt + 1))
+            print(f" [Connection error]: try to use VPN", end="", flush=True);     time.sleep(10 * (attempt + 1))
         except Exception: # EXCEPTION
-            time.sleep(5 * (attempt + 1))
+            print(f" [Error: {type(e).__name__}]", end="", flush=True); time.sleep(10 * (attempt + 1))
 
     return []
 
@@ -170,14 +167,14 @@ def collect():
 
         # progress bar
         bar_done = int(len(all_news) / TARGET * 100)
-        bar(bar_done, BAR_LEN)
+        bar(combo, bar_done)
 
     print() 
     return all_news
 
-def bar(proc, size):
+def bar(combo, proc, size=BAR_LEN):
     bar = "█" * int(proc*size/100) + "░" * int((100 - proc)*size/100)
-    print(f"\r[{bar}] {proc}%  ", end="", flush=True)
+    print(f"\r[{bar}] {proc}% \t{combo}\t\t\t", end="", flush=True)
 
 def rdelay(a, b):
     time.sleep(random.uniform(a, b))
@@ -193,8 +190,8 @@ def main():
     news = collect()
     print(f"\n✅ Collected uniques: {len(news)}")
 
-    with open(f"{OUTPUT_DIR}/{OUTPUT_FILENAME}{TARGET}.json", "w", encoding="utf-8") as f:
+    with open(f"{OUTPUT}{TARGET}.json", "w", encoding="utf-8") as f:
         json.dump(news, f, ensure_ascii=False, indent=2)
-    print(f"💾 {OUTPUT_DIR}/{OUTPUT_FILENAME}.json")
+    print(f"💾 {OUTPUT}{TARGET}.json")
 
 main()

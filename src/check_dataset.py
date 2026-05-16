@@ -19,7 +19,7 @@ def getdatalen(fn):
         data = json.load(f)
         return len(data)
 
-fn = "json/data500.json"
+fn = "json/data5000.json"
 
 if check_unique(fn):
     print(f"Ok!  Len of uniqies: {getdatalen(fn)}")

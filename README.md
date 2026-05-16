@@ -2,4 +2,4 @@
 dataset analy script  
   
 # Targets  
-check targets.md
+make a report
