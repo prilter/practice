@@ -33,7 +33,7 @@ def get_unique_words_count(data, field="title"):
     return len(set(all_words))
 
 
-def get_word_count_statistics(data, field="data"):
+def get_word_count_statistics(data, field="title"):
     '''
     Пункт 3: Минимальное, максимальное, среднее, медианное количество слов в записях
     '''
@@ -139,7 +139,7 @@ def main(fn: str):
     
     # 3. Words stats
     word_stats = get_word_count_statistics(data)
-    print(f"\n3. Статистика количества слов (в поле 'data'):")
+    print(f"\n3. Статистика количества слов (в поле 'title'):")
     print(f"   - Минимальное: {word_stats['min']}")
     print(f"   - Максимальное: {word_stats['max']}")
     print(f"   - Среднее: {word_stats['mean']:.2f}")

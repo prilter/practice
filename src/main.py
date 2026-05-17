@@ -5,7 +5,7 @@ import random
 import json
 
 # ═══════════════════════════════════════════════════════
-TARGET          = 200
+TARGET          = 5000
 NEWS_PER_PAGE   = 100
 BAR_LEN         = 25
 OUTPUT          = "json/data"
@@ -114,7 +114,7 @@ def getpage(query, page, region, max_retries=3):
         except requests.exceptions.ConnectionError: # CONNECTION ERROR
             print(f" [Connection error]: try to use VPN", end="", flush=True);     time.sleep(10 * (attempt + 1))
         except Exception: # EXCEPTION
-            print(f" [Error: {type(e).__name__}]", end="", flush=True); time.sleep(10 * (attempt + 1))
+            print(f" [Error]: Cannot parse", end="", flush=True);                  time.sleep(10 * (attempt + 1))
 
     return []
 
