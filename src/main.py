@@ -5,7 +5,7 @@ import random
 import json
 
 # ═══════════════════════════════════════════════════════
-TARGET          = 5000
+TARGET          = 5000 
 NEWS_PER_PAGE   = 100
 BAR_LEN         = 25
 OUTPUT          = "json/data"
@@ -80,7 +80,7 @@ def getpage(query, page, region, max_retries=3):
 
     for attempt in range(max_retries): # RETRIES FOR SAFETY
         try:
-            r = session.get(url, headers=headers, timeout=20, allow_redirects=True)
+            r = session.get(url, headers=headers, timeout=10, allow_redirects=True)
 
             if r.status_code == 200:
                 soup  = BeautifulSoup(r.content, "xml")
@@ -97,9 +97,7 @@ def getpage(query, page, region, max_retries=3):
                         "date":        item.find("pubDate").text  if item.find("pubDate")  else "",
                         "source":      item.find("source").text   if item.find("source")   else "",
                         "description": BeautifulSoup(desc.text, "html.parser").get_text()  if desc and desc.text else "",
-                        "author":      item.find("author").text   if item.find("author")   else "",
-                        "category":    item.find("category").text if item.find("category") else "",
-                        "comments":    item.find("comments").text if item.find("comments") else "",
+                        "guid":        item.find("guid").text,
                         "page":        page,
                         "query":       query,
                         "region":      region[3],
@@ -118,7 +116,7 @@ def getpage(query, page, region, max_retries=3):
 
     return []
 
-def combo_analy(buf, combo, seen_links, seen_titles): # Procedure
+def combo_analy(buf, combo, seen_guids): # Procedure
     query, region = combo
 
     page = 1
@@ -129,13 +127,12 @@ def combo_analy(buf, combo, seen_links, seen_titles): # Procedure
             break
 
         for news in batch:
-            link  = news["link"].strip()
-            title = news["title"].strip().lower()
+            guid = news.get("guid", "").strip()
 
-            if link in seen_links or title in seen_titles: # SKIP DOUBLICATES
+            if guid in seen_guids: # SKIP DOUBLICATES
                 return buf
 
-            seen_links.add(link); seen_titles.add(title)
+            seen_guids.add(guid)
             buf.append(news)
 
             if len(buf) >= TARGET:
@@ -146,24 +143,28 @@ def combo_analy(buf, combo, seen_links, seen_titles): # Procedure
 
     return buf
 
+import socket
+def warmup(): # Прогрев соединения для первого session.get() (SSL-обмен, DNS-соединение)
+    socket.gethostbyname('news.google.com') # Прогрев DNS для первого соединения
+
 def collect():
     print(f"Target: {TARGET}\n")
 
     all_news    = []
-    seen_links  = set()
-    seen_titles = set()
+    seen_guids  = set()
 
     # MAKING COMBOS region x query
     combos = [(q, r) for q in QUERIES for r in REGIONS]
     random.shuffle(combos)
 
     # ANALIZING COMBOS
+    warmup()
     for _, combo in enumerate(combos):
         # skip
         if len(all_news) >= TARGET:
             break
 
-        all_news = combo_analy(all_news, combo, seen_links, seen_titles)
+        all_news = combo_analy(all_news, combo, seen_guids)
 
         # progress bar
         bar_done = int(len(all_news) / TARGET * 100)
@@ -174,7 +175,7 @@ def collect():
 
 def bar(combo, proc, size=BAR_LEN):
     bar = "█" * int(proc*size/100) + "░" * int((100 - proc)*size/100)
-    print(f"\r[{bar}] {proc}% \t{combo}\t\t\t", end="", flush=True)
+    print(f"\r[{bar}] {proc}% {combo}               ", end="", flush=True)
 
 def rdelay(a, b):
     time.sleep(random.uniform(a, b))

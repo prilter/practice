@@ -19,6 +19,16 @@ def get_total_records_count(a):
     return len(a)
 
 
+def check_unique_set(data):
+    guids = []
+    for item in data:
+        if item['guid'] in guids:
+            return False
+        guids.append(item['guid'])
+
+    return True
+
+
 def get_unique_words_count(data, field="title"):
     '''
     Пункт 2: Количество уникальных слов в указанном поле (по умолчанию title)
@@ -132,10 +142,11 @@ def main(fn: str):
     # 1. Records counter 
     total = get_total_records_count(data)
     print(f"\n1. Количество записей: {total}")
+    print(f"   Уникальныe записи: {check_unique_set(data)}")
     
     # 2. Uniqie words
     unique_words = get_unique_words_count(data)
-    print(f"\n2. Количество уникальных слов (в поле 'date'): {unique_words}")
+    print(f"\n2. Количество уникальных слов (в поле 'title'): {unique_words}")
     
     # 3. Words stats
     word_stats = get_word_count_statistics(data)
