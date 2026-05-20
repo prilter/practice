@@ -5,7 +5,7 @@ import random
 import json
 
 # ═══════════════════════════════════════════════════════
-TARGET          = 100
+TARGET          = 5000
 NEWS_PER_PAGE   = 100
 BAR_LEN         = 25
 OUTPUTNAME      = "data"
