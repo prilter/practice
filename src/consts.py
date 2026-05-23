@@ -1,0 +1,6 @@
+INPUT          =  "input"
+OUTPUT_DIR     =  "results"
+MODEL_PATH     = f"{OUTPUT_DIR}/model.joblib"
+SCALER_PATH    = f"{OUTPUT_DIR}/scaler.joblib"
+ENCODER_PATH   = f"{OUTPUT_DIR}/label_encoder.joblib"
+TARGET_COLUMN  =  "class"
