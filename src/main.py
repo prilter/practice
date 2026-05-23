@@ -1,201 +1,340 @@
-import requests
-from bs4 import BeautifulSoup
-import time
-import random
-import json
-
-# ═══════════════════════════════════════════════════════
-TARGET          = 5000
-NEWS_PER_PAGE   = 100
-BAR_LEN         = 25
-OUTPUTNAME      = "data"
-OUTPUTDIR       = "json"
-
-QUERIES = [
-    # Basis
-    "noticias","política","economía","deportes","tecnología",
-    "salud","cultura","ciencia","educación","medio ambiente",
-    "internacional","sociedad","entretenimiento","negocios","viajes",
-
-    # Themes
-    "última hora", "noticias hoy", "urgente", "exclusiva", "confirmado", # Events
-    "gobierno", "presidente", "congreso", "elecciones", "ministerio", "reforma", "parlamento", "ley", "política", "diplomacia", # Power and politics
-    "economía", "mercado", "bolsa", "precios", "inflación", "empresa", "empleo", "sueldo", "negocios", "finanzas", # Economy and money
-    "sucesos", "policía", "justicia", "tribunal", "alerta", "seguridad", "accidente", "investigación", "denuncia", # Society
-    "fútbol", "fichajes", "partido", "campeonato", "derrota", "victoria", # Sport
-    "tecnología", "ciencia", "salud", "médico", "innovación", "descubrimiento", "estudio", "clima", "medio ambiente", # Science and health
-    "cultura", "cine", "estreno", "concierto", "famosos", "espectáculos", # Culture
-    "ayuntamiento", "alcalde", "barrio", "comunidad", "vecinos", "protesta", "manifestación", # Local
-    "pronóstico", "clima", "tormenta", "medio ambiente", "sostenibilidad", "cambio climático", # Weather
-    "universidad", "estudiantes", "oposiciones", "becas", "teletrabajo", "sindicato", # Education
-    "detenido", "robo", "incendio", "desaparecido", "operativo", "narcotráfico", "emergencia" # Criminal
-]
-
-REGIONS = [
-    ("es",     "ES", "ES:es",     "España"),
-    ("es-419", "MX", "MX:es-419", "México"),
-    ("es",     "US", "US:es",     "EEUU (es)"),
-    ("es-419", "GT", "GT:es-419", "Guatemala"),
-    ("es-419", "HN", "HN:es-419", "Honduras"),
-    ("es-419", "SV", "SV:es-419", "El Salvador"),
-    ("es-419", "NI", "NI:es-419", "Nicaragua"),
-    ("es-419", "CR", "CR:es-419", "Costa Rica"),
-    ("es-419", "PA", "PA:es-419", "Panamá"),
-    ("es-419", "CU", "CU:es-419", "Cuba"),
-    ("es-419", "DO", "DO:es-419", "República Dominicana"),
-    ("es-419", "PR", "PR:es-419", "Puerto Rico"),
-    ("es-419", "CO", "CO:es-419", "Colombia"),
-    ("es-419", "VE", "VE:es-419", "Venezuela"),
-    ("es-419", "PE", "PE:es-419", "Perú"),
-    ("es-419", "EC", "EC:es-419", "Ecuador"),
-    ("es-419", "BO", "BO:es-419", "Bolivia"),
-    ("es-419", "CL", "CL:es-419", "Chile"),
-    ("es-419", "AR", "AR:es-419", "Argentina"),
-    ("es-419", "UY", "UY:es-419", "Uruguay"),
-    ("es-419", "PY", "PY:es-419", "Paraguay"),
-    ("es", "GQ", "GQ:es", "Guinea Ecuatorial")
-]
-
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0",
-]
-
-session = requests.Session() # MAKE A SESSION
-
-def getpage(query, page, region, max_retries=3):
-    hl, gl, ceid, _ = region
-    url = (
-        f"https://news.google.com/rss/search"
-        f"?q={requests.utils.quote(query)}&hl={hl}&gl={gl}&ceid={ceid}"
-        f"&num={NEWS_PER_PAGE}&start={(page-1)*10}"
-    )
-    headers = {
-        "User-Agent":      random.choice(USER_AGENTS),
-        "Accept":          "application/rss+xml, application/xml, text/xml, */*",
-        "Accept-Language": f"{hl},{hl[:2]};q=0.9,en;q=0.8",
-        "Connection":      "keep-alive",
-    }
-
-    for attempt in range(max_retries): # RETRIES FOR SAFETY
-        try:
-            r = session.get(url, headers=headers, timeout=10, allow_redirects=True)
-
-            if r.status_code == 200:
-                soup  = BeautifulSoup(r.content, "xml")
-                items = soup.find_all("item")
-                if not items:
-                    return []
-
-                res = []
-                for item in items:
-                    desc     = item.find("description")
-                    res.append({
-                        "title":       item.find("title").text    if item.find("title")    else "",
-                        "link":        item.find("link").text     if item.find("link")     else "",
-                        "date":        item.find("pubDate").text  if item.find("pubDate")  else "",
-                        "source":      item.find("source").text   if item.find("source")   else "",
-                        "description": BeautifulSoup(desc.text, "html.parser").get_text()  if desc and desc.text else "",
-                        "guid":        item.find("guid").text,
-                        "page":        page,
-                        "query":       query,
-                        "region":      region[3],
-                    })
-                return res
-
-            elif r.status_code == 429: # TOO AGRESSIVE PARSING
-                print(f" [429 – waiting]", end="", flush=True); rdelay(5,7)
-            else: # ERROR -> RETRY
-                print(f" Error", end="", flush=True);           rdelay(5,7)
-
-        except requests.exceptions.ConnectionError: # CONNECTION ERROR
-            print(f" [Connection error]: try to use VPN", end="", flush=True);     time.sleep(10 * (attempt + 1))
-        except Exception: # EXCEPTION
-            print(f" [Error]: Cannot parse", end="", flush=True);                  time.sleep(10 * (attempt + 1))
-
-    return []
-
-def combo_analy(buf, combo, seen_guids): # Procedure
-    query, region = combo
-
-    page = 1
-    while len(buf) < TARGET:
-        batch = getpage(query, page, region)
-
-        if not batch:
-            break
-
-        for news in batch:
-            guid = news.get("guid", "").strip()
-
-            if guid in seen_guids: # SKIP DOUBLICATES
-                return buf
-
-            seen_guids.add(guid)
-            buf.append(news)
-
-            if len(buf) >= TARGET:
-                return buf
-
-        page += 1
-        rdelay(1.5, 2.7)
-
-    return buf
-
-import socket
-def warmup(): # Прогрев соединения для первого session.get() (SSL-обмен, DNS-соединение)
-    socket.gethostbyname('news.google.com') # Прогрев DNS для первого соединения
-
-def collect():
-    print(f"Target: {TARGET}\n")
-
-    all_news    = []
-    seen_guids  = set()
-
-    # MAKING COMBOS region x query
-    combos = [(q, r) for q in QUERIES for r in REGIONS]
-    random.shuffle(combos)
-
-    # ANALIZING COMBOS
-    warmup()
-    for _, combo in enumerate(combos):
-        # skip
-        if len(all_news) >= TARGET:
-            break
-
-        all_news = combo_analy(all_news, combo, seen_guids)
-
-        # progress bar
-        bar_done = int(len(all_news) / TARGET * 100)
-        bar(combo, bar_done)
-
-    print() 
-    return all_news
-
-def bar(combo, proc, size=BAR_LEN):
-    bar = "█" * int(proc*size/100) + "░" * int((100 - proc)*size/100)
-    print(f"\r[{bar}] {proc}% {combo}               ", end="", flush=True)
-
-def rdelay(a, b):
-    time.sleep(random.uniform(a, b))
-    
-def superprint(s, n=50):
-    print("═" * n)
-    print(f"{s:^{n}}")
-    print("═" * n)
+"""
+Практическая работа №2. Классификация данных.
+Классификация астрономических объектов (STAR / GALAXY / QSO)
+на основе данных Sloan Digital Sky Survey (SDSS).
+"""
 
 import os
+import warnings
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import joblib
+
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    classification_report,
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+)
+
+warnings.filterwarnings("ignore")
+
+# ──────────────────────────────────────────────
+# 1. ЗАГРУЗКА И ПЕРВИЧНЫЙ АНАЛИЗ ДАННЫХ
+# ──────────────────────────────────────────────
+
+DATASET_PATH = "public_data.csv"      # исходный датасет
+INPUT_PATH = "input.csv"              # файл без целевой переменной (для финальной классификации)
+OUTPUT_PATH = "output.csv"            # результат классификации
+MODEL_PATH = "model.joblib"           # сохранённая модель
+SCALER_PATH = "scaler.joblib"         # сохранённый скейлер
+ENCODER_PATH = "label_encoder.joblib" # сохранённый LabelEncoder
+TARGET_COLUMN = "class"               # имя целевой переменной
+
+def load_data(path: str) -> pd.DataFrame:
+    """Загрузка CSV-файла в DataFrame."""
+    df = pd.read_csv(path)
+    print(f"Загружен файл «{path}»: {df.shape[0]} строк, {df.shape[1]} столбцов")
+    return df
+
+
+def explore_data(df: pd.DataFrame) -> None:
+    """Первичный разведочный анализ (EDA)."""
+    print("\n═══ Первые 5 строк ═══")
+    print(df.head())
+
+    print("\n═══ Информация о датасете ═══")
+    print(df.info())
+
+    print("\n═══ Описательная статистика ═══")
+    print(df.describe())
+
+    print("\n═══ Пропуски по столбцам ═══")
+    print(df.isnull().sum())
+
+    if TARGET_COLUMN in df.columns:
+        print("\n═══ Распределение классов ═══")
+        print(df[TARGET_COLUMN].value_counts())
+
+
+# ──────────────────────────────────────────────
+# 2. ПРЕДОБРАБОТКА ДАННЫХ
+# ──────────────────────────────────────────────
+
+# Признаки, которые НЕ несут полезной информации для классификации
+# (идентификаторы, служебные поля)
+DROP_COLUMNS = [
+    "Row_id",
+    "obj_ID",
+    "run_ID",
+    "rerun_ID",
+    "cam_col",
+    "field_ID",
+    "spec_obj_ID",
+    "plate",
+    "MJD",
+    "fiber_ID",
+]
+
+
+def preprocess(df: pd.DataFrame, is_train: bool = True,
+               scaler: StandardScaler = None,
+               label_encoder: LabelEncoder = None):
+    """
+    Предобработка данных:
+      - удаление неинформативных столбцов;
+      - разделение на X и y (если обучающий режим);
+      - масштабирование признаков (StandardScaler);
+      - кодирование целевой переменной (LabelEncoder).
+
+    Возвращает:
+      X_scaled, y_encoded (или None), scaler, label_encoder
+    """
+    df = df.copy()
+
+    # Удаляем столбцы-идентификаторы (только те, что реально есть в DataFrame)
+    cols_to_drop = [c for c in DROP_COLUMNS if c in df.columns]
+    df.drop(columns=cols_to_drop, inplace=True)
+
+    # Отделяем целевую переменную (если есть)
+    y = None
+    if TARGET_COLUMN in df.columns:
+        y = df[TARGET_COLUMN].copy()
+        df.drop(columns=[TARGET_COLUMN], inplace=True)
+
+    # Заполняем пропуски медианой (на случай, если они есть)
+    df.fillna(df.median(numeric_only=True), inplace=True)
+
+    # ─── Масштабирование ───
+    if scaler is None:
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(df)
+    else:
+        X_scaled = scaler.transform(df)
+
+    # ─── Кодирование меток ───
+    y_encoded = None
+    if y is not None:
+        if label_encoder is None:
+            label_encoder = LabelEncoder()
+            y_encoded = label_encoder.fit_transform(y)
+        else:
+            y_encoded = label_encoder.transform(y)
+
+    return X_scaled, y_encoded, scaler, label_encoder, df.columns.tolist()
+
+
+# ──────────────────────────────────────────────
+# 3. ОБУЧЕНИЕ И ОЦЕНКА МОДЕЛЕЙ
+# ──────────────────────────────────────────────
+
+def train_and_evaluate(X_train, y_train, X_test, y_test, label_encoder):
+    """
+    Обучение нескольких классификаторов, вывод метрик,
+    выбор лучшей модели по accuracy.
+    """
+    models = {
+        "Logistic Regression": LogisticRegression(max_iter=1000, random_state=42),
+        "K-Nearest Neighbors": KNeighborsClassifier(n_neighbors=5),
+        "Decision Tree": DecisionTreeClassifier(random_state=42),
+        "Random Forest": RandomForestClassifier(n_estimators=200, random_state=42),
+        "Gradient Boosting": GradientBoostingClassifier(
+            n_estimators=200, learning_rate=0.1, max_depth=5, random_state=42
+        ),
+    }
+
+    results = {}
+
+    for name, model in models.items():
+        print(f"\n────── {name} ──────")
+        model.fit(X_train, y_train)
+        y_pred = model.predict(X_test)
+
+        acc = accuracy_score(y_test, y_pred)
+        prec = precision_score(y_test, y_pred, average="weighted")
+        rec = recall_score(y_test, y_pred, average="weighted")
+        f1 = f1_score(y_test, y_pred, average="weighted")
+
+        results[name] = {
+            "model": model,
+            "accuracy": acc,
+            "precision": prec,
+            "recall": rec,
+            "f1": f1,
+        }
+
+        print(f"  Accuracy:  {acc:.4f}")
+        print(f"  Precision: {prec:.4f}")
+        print(f"  Recall:    {rec:.4f}")
+        print(f"  F1-score:  {f1:.4f}")
+        print()
+        print(
+            classification_report(
+                y_test, y_pred, target_names=label_encoder.classes_
+            )
+        )
+
+    # Определяем лучшую модель
+    best_name = max(results, key=lambda k: results[k]["accuracy"])
+    best_model = results[best_name]["model"]
+    print(f"\n★ Лучшая модель: {best_name}  (accuracy = {results[best_name]['accuracy']:.4f})")
+
+    return best_model, best_name, results
+
+
+def plot_confusion(model, X_test, y_test, label_encoder, model_name: str):
+    """Построение и сохранение матрицы ошибок."""
+    y_pred = model.predict(X_test)
+    cm = confusion_matrix(y_test, y_pred)
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=label_encoder.classes_)
+    fig, ax = plt.subplots(figsize=(7, 6))
+    disp.plot(ax=ax, cmap="Blues", values_format="d")
+    ax.set_title(f"Confusion Matrix — {model_name}")
+    plt.tight_layout()
+    plt.savefig("confusion_matrix.png", dpi=150)
+    plt.show()
+    print("Матрица ошибок сохранена в confusion_matrix.png")
+
+
+def plot_feature_importance(model, feature_names: list, model_name: str):
+    """Визуализация важности признаков (для моделей на основе деревьев)."""
+    if not hasattr(model, "feature_importances_"):
+        print("Модель не поддерживает feature_importances_, пропуск визуализации.")
+        return
+
+    importances = model.feature_importances_
+    indices = np.argsort(importances)[::-1]
+
+    plt.figure(figsize=(10, 6))
+    sns.barplot(x=importances[indices], y=np.array(feature_names)[indices], orient="h")
+    plt.title(f"Feature Importance — {model_name}")
+    plt.xlabel("Importance")
+    plt.tight_layout()
+    plt.savefig("feature_importance.png", dpi=150)
+    plt.show()
+    print("График важности признаков сохранён в feature_importance.png")
+
+
+def plot_results_comparison(results: dict):
+    """Сравнительная столбчатая диаграмма метрик по всем моделям."""
+    metrics = ["accuracy", "precision", "recall", "f1"]
+    model_names = list(results.keys())
+
+    data = {m: [results[n][m] for n in model_names] for m in metrics}
+    df_res = pd.DataFrame(data, index=model_names)
+
+    df_res.plot(kind="bar", figsize=(12, 6), rot=15)
+    plt.title("Сравнение моделей классификации")
+    plt.ylabel("Значение метрики")
+    plt.ylim(0.0, 1.05)
+    plt.legend(loc="lower right")
+    plt.tight_layout()
+    plt.savefig("models_comparison.png", dpi=150)
+    plt.show()
+    print("Сравнительная диаграмма сохранена в models_comparison.png")
+
+
+# ──────────────────────────────────────────────
+# 4. СОХРАНЕНИЕ / ЗАГРУЗКА МОДЕЛИ
+# ──────────────────────────────────────────────
+
+def save_artifacts(model, scaler, label_encoder):
+    """Сохранение обученной модели, скейлера и кодировщика на диск."""
+    joblib.dump(model, MODEL_PATH)
+    joblib.dump(scaler, SCALER_PATH)
+    joblib.dump(label_encoder, ENCODER_PATH)
+    print(f"Артефакты сохранены: {MODEL_PATH}, {SCALER_PATH}, {ENCODER_PATH}")
+
+
+def load_artifacts():
+    """Загрузка модели, скейлера и кодировщика с диска."""
+    model = joblib.load(MODEL_PATH)
+    scaler = joblib.load(SCALER_PATH)
+    label_encoder = joblib.load(ENCODER_PATH)
+    print("Артефакты загружены.")
+    return model, scaler, label_encoder
+
+
+# ──────────────────────────────────────────────
+# 5. КЛАССИФИКАЦИЯ НОВОГО ФАЙЛА (input.csv → output.csv)
+# ──────────────────────────────────────────────
+
+def classify_input(input_path: str = INPUT_PATH, output_path: str = OUTPUT_PATH):
+    """
+    Считывает input.csv (без целевого столбца),
+    применяет обученную модель, записывает output.csv
+    (все исходные столбцы + столбец class).
+    """
+    model, scaler, label_encoder = load_artifacts()
+
+    df_input = pd.read_csv(input_path)
+    print(f"Загружен {input_path}: {df_input.shape[0]} строк")
+
+    X, _, _, _, _ = preprocess(df_input, is_train=False, scaler=scaler, label_encoder=label_encoder)
+
+    y_pred_encoded = model.predict(X)
+    y_pred_labels = label_encoder.inverse_transform(y_pred_encoded)
+
+    df_output = df_input.copy()
+    df_output[TARGET_COLUMN] = y_pred_labels
+
+    df_output.to_csv(output_path, index=False)
+    print(f"Результат записан в {output_path}")
+
+
+# ──────────────────────────────────────────────
+# 6. ОСНОВНОЙ СЦЕНАРИЙ
+# ──────────────────────────────────────────────
+
 def main():
-    superprint('GOOGLE NEWS PARSER')
+    # ── Шаг 1. Загрузка и анализ ──
+    df = load_data(DATASET_PATH)
+    explore_data(df)
 
-    news = collect()
-    print(f"\n✅ Collected uniques: {len(news)}")
+    # ── Шаг 2. Предобработка ──
+    X, y, scaler, label_encoder, feature_names = preprocess(df, is_train=True)
 
-    os.makedirs(OUTPUTDIR, exist_ok=True) # MAKE JSON DIR
-    with open(f"{OUTPUTDIR}/{OUTPUTNAME}{TARGET}.json", "w", encoding="utf-8") as f:
-        json.dump(news, f, ensure_ascii=False, indent=2)
-    print(f"💾 {OUTPUTDIR}/{OUTPUTNAME}{TARGET}.json")
+    # ── Шаг 3. Разделение на обучающую и тестовую выборки ──
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+    print(f"\nОбучающая выборка: {X_train.shape[0]} | Тестовая выборка: {X_test.shape[0]}")
+
+    # ── Шаг 4. Обучение и оценка моделей ──
+    best_model, best_name, results = train_and_evaluate(
+        X_train, y_train, X_test, y_test, label_encoder
+    )
+
+    # ── Шаг 5. Визуализации ──
+    plot_confusion(best_model, X_test, y_test, label_encoder, best_name)
+    plot_feature_importance(best_model, feature_names, best_name)
+    plot_results_comparison(results)
+
+    # ── Шаг 6. Кросс-валидация лучшей модели ──
+    cv_scores = cross_val_score(best_model, X, y, cv=5, scoring="accuracy")
+    print(f"\nКросс-валидация (5 фолдов): {cv_scores}")
+    print(f"Средняя accuracy: {cv_scores.mean():.4f} ± {cv_scores.std():.4f}")
+
+    # ── Шаг 7. Сохранение артефактов ──
+    save_artifacts(best_model, scaler, label_encoder)
+
+    # ── Шаг 8. Классификация input.csv (если файл существует) ──
+    if os.path.exists(INPUT_PATH):
+        classify_input()
+    else:
+        print(f"\nФайл {INPUT_PATH} не найден. Пропускаем этап классификации нового файла.")
+
 
 main()

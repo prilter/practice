@@ -3,15 +3,12 @@
 pkgs.mkShell {
   buildInputs = with pkgs; [
     (python313.withPackages (ps: with ps; [
-      requests
-      beautifulsoup4
-      lxml
-      feedparser
+      numpy
+      pandas
+      scikit-learn
+      matplotlib
+      seaborn
+      joblib
     ]))
   ];
-  
-  shellHook = ''
-    echo "✅ Python enviourement is ready"
-    echo "📦 Installed packages: requests, beautifulsoup4"
-  '';
 }
