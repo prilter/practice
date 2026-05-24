@@ -179,7 +179,7 @@ def plot_confusion(model, X_test, y_test, label_encoder, model_name: str):
     disp.plot(ax=ax, cmap="Blues", values_format="d")
     ax.set_title(f"Confusion Matrix — {model_name}")
     plt.tight_layout()
-    save_path = os.path.join(OUTPUT_DIR, "confusion_matrix.png")
+    save_path = os.path.join(OUTPUT_DIR, "confusion_matrix.png") 
     plt.savefig(save_path, dpi=150)
     plt.close()
     print(f"Матрица ошибок сохранена в {save_path}")

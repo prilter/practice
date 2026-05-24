@@ -74,18 +74,18 @@ def preprocess_input(df: pd.DataFrame, scaler: StandardScaler):
 
 
 # ──────────────────────────────────────────────
-# 3. КЛАССИФИКАЦИЯ И СОХРАНЕНИЕ РЕЗУЛЬТАТА
+# 3. ТОЧКА ВХОДА
 # ──────────────────────────────────────────────
 
-def classify(input_path: str = INPUT_PATH, output_path: str = OUTPUT_PATH):
-    if not os.path.exists(input_path):
-        raise FileNotFoundError(f"Входной файл «{input_path}» не найден.")
+def main():
+    if not os.path.exists(INPUT_PATH):
+        raise FileNotFoundError(f"Входной файл «{INPUT_PATH}» не найден.")
 
     model, scaler, label_encoder = load_artifacts()
 
     # Читаем входные данные
-    df_input = pd.read_csv(input_path)
-    print(f"Загружен «{input_path}»: {df_input.shape[0]} строк, {df_input.shape[1]} столбцов")
+    df_input = pd.read_csv(INPUT_PATH)
+    print(f"Загружен «{INPUT_PATH}»: {df_input.shape[0]} строк, {df_input.shape[1]} столбцов")
 
     # Предобработка
     X = preprocess_input(df_input, scaler)
@@ -100,16 +100,10 @@ def classify(input_path: str = INPUT_PATH, output_path: str = OUTPUT_PATH):
     df_output[TARGET_COLUMN] = y_pred_labels
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    df_output.to_csv(output_path, index=False)
+    df_output.to_csv(OUTPUT_PATH, index=False)
 
-    print(f"\nКлассификация завершена! Результат записан в «{output_path}»")
+    print(f"\nКлассификация завершена! Результат записан в «{OUTPUT_PATH}»")
     print("\n═══ Распределение предсказанных классов ═══")
     print(df_output[TARGET_COLUMN].value_counts())
 
-
-# ──────────────────────────────────────────────
-# ТОЧКА ВХОДА
-# ──────────────────────────────────────────────
-
-if __name__ == "__main__":
-    classify()
+main()
