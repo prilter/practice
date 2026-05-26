@@ -1,6 +1,10 @@
-INPUT          =  "input"
-OUTPUT_DIR     =  "results"
-MODEL_PATH     = f"{OUTPUT_DIR}/model.joblib"
-SCALER_PATH    = f"{OUTPUT_DIR}/scaler.joblib"
-ENCODER_PATH   = f"{OUTPUT_DIR}/label_encoder.joblib"
-TARGET_COLUMN  =  "class"
+INPUTDIR    =  "input"
+DATASET     =  "public_data.csv"
+DATASETDIR  = f"{INPUTDIR}/{DATASET}"
+
+RESULTDIR   =  "res"
+MODELNAME   =  "ts_model.pkl"
+MODELDIR    = f"{RESULTDIR}/{MODELNAME}"
+
+AIOUTPUT    =  "public_data_forecasted.csv"
+AIOUTPUTDIR = f"{RESULTDIR}/{AIOUTPUT}"
